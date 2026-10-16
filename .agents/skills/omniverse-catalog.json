@@ -1,0 +1,245 @@
+{
+  "name": "Aegentix Universal Human Work & Intelligence Taxonomy (UHWIT)",
+  "version": "2.0.0",
+  "totalCapacity": 120000,
+  "activeClusters": 12,
+  "clusters": [
+    {
+      "id": "C01",
+      "name": "Media, Entertainment, Broadcast & Arts",
+      "branchesCount": 10,
+      "skillsAllocated": 10000,
+      "status": "ACTIVE_INDEXED"
+    },
+    {
+      "id": "C02",
+      "name": "Computer Science, Software & AI Engineering",
+      "branchesCount": 10,
+      "skillsAllocated": 10000,
+      "status": "ACTIVE_INDEXED"
+    },
+    {
+      "id": "C03",
+      "name": "Medicine, Surgery, Genomics & Healthcare",
+      "branchesCount": 10,
+      "skillsAllocated": 10000,
+      "status": "ACTIVE_INDEXED"
+    },
+    {
+      "id": "C04",
+      "name": "Law, Jurisprudence, Governance & Policy",
+      "branchesCount": 10,
+      "skillsAllocated": 10000,
+      "status": "ACTIVE_INDEXED"
+    },
+    {
+      "id": "C05",
+      "name": "Finance, Banking, Economics & Commerce",
+      "branchesCount": 10,
+      "skillsAllocated": 10000,
+      "status": "ACTIVE_INDEXED"
+    },
+    {
+      "id": "C06",
+      "name": "Architecture, Civil & Structural Engineering",
+      "branchesCount": 10,
+      "skillsAllocated": 10000,
+      "status": "ACTIVE_INDEXED"
+    },
+    {
+      "id": "C07",
+      "name": "Mechanical, Electrical & Manufacturing Eng.",
+      "branchesCount": 10,
+      "skillsAllocated": 10000,
+      "status": "ACTIVE_INDEXED"
+    },
+    {
+      "id": "C08",
+      "name": "Aerospace, Defense, Marine & Astronautics",
+      "branchesCount": 10,
+      "skillsAllocated": 10000,
+      "status": "ACTIVE_INDEXED"
+    },
+    {
+      "id": "C09",
+      "name": "Agriculture, Agronomy & Food Science",
+      "branchesCount": 10,
+      "skillsAllocated": 10000,
+      "status": "ACTIVE_INDEXED"
+    },
+    {
+      "id": "C10",
+      "name": "Energy, Mining & Environmental Science",
+      "branchesCount": 10,
+      "skillsAllocated": 10000,
+      "status": "ACTIVE_INDEXED"
+    },
+    {
+      "id": "C11",
+      "name": "Education, Linguistics & Cognitive Sciences",
+      "branchesCount": 10,
+      "skillsAllocated": 10000,
+      "status": "ACTIVE_INDEXED"
+    },
+    {
+      "id": "C12",
+      "name": "Hospitality, Logistics, Trades & Human Care",
+      "branchesCount": 10,
+      "skillsAllocated": 10000,
+      "status": "ACTIVE_INDEXED"
+    }
+  ],
+  "fullSailBroadcastingMatrix": [
+    {
+      "id": "audio-mastering-engineer",
+      "category": "Recording Arts & DSP",
+      "domain": "Domain 2 - Music Production & Studio Engineering",
+      "certification": "Full Sail AUD330 / Apple Digital Masters / AES"
+    },
+    {
+      "id": "broadcast-transmission-engineer",
+      "category": "Broadcast Systems Engineering",
+      "domain": "Domain 1 - Broadcast & Transmission",
+      "certification": "SMPTE Fellow / SBE CPBE / IEEE 1588"
+    },
+    {
+      "id": "live-stream-director",
+      "category": "Live Streaming Architecture",
+      "domain": "Domain 6 - Streaming Architecture & Cloud Playout",
+      "certification": "OBS Certified Engineer / vMix Pro / Full Sail BCS204"
+    },
+    {
+      "id": "esports-production-director",
+      "category": "Esports & Live Production",
+      "domain": "Domain 7 - Esports Operations & Telemetry",
+      "certification": "ALGS / ESL Certified Broadcast Director"
+    },
+    {
+      "id": "game-audio-programmer",
+      "category": "Game Audio & Middleware",
+      "domain": "Domain 4 - Game Audio & Interactive Media",
+      "certification": "Wwise Certified Instructor / Full Sail GMA320"
+    },
+    {
+      "id": "master-control-operator",
+      "category": "Broadcast Operations",
+      "domain": "Domain 1 - Broadcast & Transmission",
+      "certification": "SBE Certified Master Control Operator (CMCO)"
+    },
+    {
+      "id": "recording-mix-engineer",
+      "category": "Recording Arts & DSP",
+      "domain": "Domain 2 - Music Production & Studio Engineering",
+      "certification": "Full Sail AUD210 / AES Senior Member"
+    },
+    {
+      "id": "sound-designer-foley",
+      "category": "Sound Design & Foley",
+      "domain": "Domain 5 - Film & Television Post-Production",
+      "certification": "MPSE Golden Reel Standard / Full Sail AUD240"
+    },
+    {
+      "id": "spatial-audio-engineer",
+      "category": "Spatial Audio & Virtual Acoustics",
+      "domain": "Domain 2 - Music Production & Studio Engineering",
+      "certification": "Dolby Atmos Certified Professional"
+    },
+    {
+      "id": "video-colorist-finishing",
+      "category": "Post-Production Finishing",
+      "domain": "Domain 5 - Film & Television Post-Production",
+      "certification": "CSI Colorist Society / Full Sail FVP310"
+    },
+    {
+      "id": "studio-lighting-director",
+      "category": "Show Production & Lighting",
+      "domain": "Domain 3 - Live Event & Tour Production",
+      "certification": "ETCP Certified Entertainment Technician"
+    },
+    {
+      "id": "front-of-house-engineer",
+      "category": "Live Sound Engineering",
+      "domain": "Domain 3 - Live Event & Tour Production",
+      "certification": "Full Sail SVR310 / L-Acoustics / Meyer Sound System Engineer"
+    },
+    {
+      "id": "entertainment-ip-attorney",
+      "category": "Entertainment Law & Media Business",
+      "domain": "Domain 10 - Entertainment Law & Media Business",
+      "certification": "California Bar Media Specialist / Full Sail ENT315"
+    },
+    {
+      "id": "voiceover-podcast-producer",
+      "category": "Voiceover & Podcasting",
+      "domain": "Domain 6 - Streaming Architecture & Cloud Playout",
+      "certification": "Full Sail BDC201 / Podcasting Guild Certified"
+    },
+    {
+      "id": "media-systems-architect",
+      "category": "Broadcast Network Engineering",
+      "domain": "Domain 1 - Broadcast & Transmission",
+      "certification": "Cisco CCNA/CCNP Broadcast / SMPTE Media Systems Fellow"
+    },
+    {
+      "id": "outside-broadcast-manager",
+      "category": "Outside Broadcast Operations",
+      "domain": "Domain 3 - Live Event & Tour Production",
+      "certification": "Full Sail BCS350 / NEP / Game Creek OB Supervisor"
+    },
+    {
+      "id": "acoustical-consultant",
+      "category": "Acoustical Physics & Architecture",
+      "domain": "Domain 9 - Acoustical Physics & Architecture",
+      "certification": "Institute of Noise Control Engineering (INCE) / Full Sail AUD110"
+    },
+    {
+      "id": "ott-encoding-engineer",
+      "category": "OTT & Cloud Video Systems",
+      "domain": "Domain 6 - Streaming Architecture & Cloud Playout",
+      "certification": "Full Sail CVP320 / Streaming Video Alliance"
+    },
+    {
+      "id": "music-supervisor",
+      "category": "Music Supervision & Sync",
+      "domain": "Domain 10 - Entertainment Law & Media Business",
+      "certification": "Guild of Music Supervisors / Full Sail ENT320"
+    },
+    {
+      "id": "multi-cam-studio-director",
+      "category": "Studio Television Directing",
+      "domain": "Domain 1 - Broadcast & Transmission",
+      "certification": "Directors Guild of America (DGA) / Full Sail FVP301"
+    },
+    {
+      "id": "shopify-entertainment-merchant",
+      "category": "Entertainment Commerce",
+      "domain": "Domain 8 - Entertainment Commerce & Media Business",
+      "certification": "Shopify Certified Developer / Full Sail ENT402"
+    },
+    {
+      "id": "game-economy-architect",
+      "category": "Game Business & Virtual Economies",
+      "domain": "Domain 8 - Entertainment Commerce & Media Business",
+      "certification": "Full Sail GBA410 / Game Developers Conference Certified"
+    },
+    {
+      "id": "ai-co-producer-coach",
+      "category": "Interactive Audio Coaching",
+      "domain": "Domain 4 - Game Audio & Interactive Media",
+      "certification": "Full Sail AUD401 / Modern Music Technologist"
+    },
+    {
+      "id": "analog-circuit-modeler",
+      "category": "DSP & Audio Software Engineering",
+      "domain": "Domain 2 - Music Production & Studio Engineering",
+      "certification": "AES Signal Processing Technical Committee"
+    },
+    {
+      "id": "broadcast-compliance-officer",
+      "category": "Broadcast Regulatory Compliance",
+      "domain": "Domain 1 - Broadcast & Transmission",
+      "certification": "Federal Communications Commission (FCC) Compliance Specialist"
+    }
+  ],
+  "lastUpdated": "2026-10-16T14:17:48.135Z"
+}
