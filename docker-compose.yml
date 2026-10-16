@@ -1,0 +1,26 @@
+services:
+  aegentix-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aegentix-sovereign-core
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+      - "7777:7777"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+    volumes:
+      - aegentix-brain:/app/brain
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/mcp/info"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  aegentix-brain:
+    name: aegentix-brain-data
