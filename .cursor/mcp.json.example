@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "Aegentix_Grok_Engine": {
+      "url": "http://127.0.0.1:3000/mcp/sse?token=GROK_CONNECTOR_TOKEN"
+    }
+  }
+}

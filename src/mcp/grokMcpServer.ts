@@ -27,10 +27,16 @@ setInterval(() => {
 }, 600000);
 
 const BRAIN_DIR = 'C:/Aegentix/brain';
-const HARDCODED_GROK_TOKEN = 'grok_12f2a06658ec036a6842a1fb9a102815_b992d9fa10b60dab6256b02530e9069f42055ad4595264e055cebc32cdfd6f35';
+
+function mcpAuthToken(): string {
+  return (process.env.GROK_CONNECTOR_TOKEN || process.env.GROK_API_KEY || '').trim();
+}
 
 function isAuthorized(req: Request): boolean {
-  const validToken = process.env.GROK_CONNECTOR_TOKEN || process.env.GROK_API_KEY || HARDCODED_GROK_TOKEN;
+  const validToken = mcpAuthToken();
+  if (!validToken) {
+    return false;
+  }
   const authHeader = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
   const xApiKey = ((req.headers['x-api-key'] as string) || '').trim();
   const queryToken = ((req.query.token as string) || (req.query.key as string) || '').trim();
