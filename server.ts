@@ -46,6 +46,7 @@ import {
 import {
   INDUSTRY_MASTERING_CONFIGS,
 } from './src/data/industryAudioProductionConfigs.ts';
+import { apexLiveApiManager } from './src/utils/apexLegendsLiveApiBridge.ts';
 
 dotenv.config();
 
@@ -9035,6 +9036,28 @@ app.post('/api/production/apply-mastering-chain', async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to apply mastering chain: ' + err.message });
   }
+});
+
+// ============================================
+// APEX LEGENDS LIVEAPI & OBS STREAMING SUITE
+// ============================================
+
+// GET /api/apex/status: Get real-time match state, squads alive, kills, ring status
+app.get('/api/apex/status', (_req, res) => {
+  res.json({ success: true, state: apexLiveApiManager.getState() });
+});
+
+// POST /api/apex/simulate-event: Trigger simulated combat events for OBS overlay & Ableton sonification testing
+app.post('/api/apex/simulate-event', (req, res) => {
+  const { type } = req.body || {};
+  const result = apexLiveApiManager.simulateEvent(type || 'KILL');
+  res.json(result);
+});
+
+// GET /overlays/apex: Transparent 60FPS OBS Browser Source Stream Overlay (1920x1080)
+app.get('/overlays/apex', (_req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(apexLiveApiManager.generateObsOverlayHtml());
 });
 
 // ============================================

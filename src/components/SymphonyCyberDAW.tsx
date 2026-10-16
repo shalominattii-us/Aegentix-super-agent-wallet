@@ -157,7 +157,7 @@ export const SymphonyCyberDAW: React.FC<SymphonyCyberDAWProps> = ({
 
   // Music Production & Industry Suites State
   const [isProductionSuiteOpen, setIsProductionSuiteOpen] = useState(true);
-  const [activeProductionTab, setActiveProductionTab] = useState<'MASTERING_CONFIGS' | 'OBS_AUDIO_MIXER' | 'CHORD_VAULT' | 'PRESET_LIBRARY'>('MASTERING_CONFIGS');
+  const [activeProductionTab, setActiveProductionTab] = useState<'MASTERING_CONFIGS' | 'OBS_AUDIO_MIXER' | 'CHORD_VAULT' | 'APEX_STREAM_DECK'>('MASTERING_CONFIGS');
   const [industryConfigs, setIndustryConfigs] = useState<any[]>([]);
   const [selectedConfigId, setSelectedConfigId] = useState<string>('izotope-ozone-11-club-maximizer');
   const [obsAudioInputs, setObsAudioInputs] = useState<any[]>([]);
@@ -165,6 +165,18 @@ export const SymphonyCyberDAW: React.FC<SymphonyCyberDAWProps> = ({
   const [selectedChordGenre, setSelectedChordGenre] = useState<string>('ALL');
   const [isApplyingMastering, setIsApplyingMastering] = useState(false);
   const [isApplyingDspRack, setIsApplyingDspRack] = useState<string | null>(null);
+
+  // Apex Legends LiveAPI & OBS Streaming State
+  const [apexState, setApexState] = useState<any>({
+    connected: false,
+    gameStatus: 'LOBBY',
+    squadsRemaining: 20,
+    playersRemaining: 60,
+    ringStage: 1,
+    mySquad: { kills: 0, damage: 0 },
+    recentEvents: [],
+  });
+  const [isDeployingApexOverlay, setIsDeployingApexOverlay] = useState(false);
 
   // Web MIDI API State
   const [midiDevices, setMidiDevices] = useState<Array<{ id: string; name: string }>>([]);
@@ -372,7 +384,22 @@ export const SymphonyCyberDAW: React.FC<SymphonyCyberDAWProps> = ({
 
     refreshObsAudioMixer();
     const interval = setInterval(refreshObsAudioMixer, 4000);
-    return () => clearInterval(interval);
+
+    const checkApex = () => {
+      fetch('/api/apex/status')
+        .then(res => res.json())
+        .then(data => {
+          if (data?.state) setApexState(data.state);
+        })
+        .catch(() => {});
+    };
+    checkApex();
+    const apexInterval = setInterval(checkApex, 2500);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(apexInterval);
+    };
   }, [refreshObsAudioMixer]);
 
   // Refresh available Web MIDI output ports
@@ -1118,6 +1145,79 @@ export const SymphonyCyberDAW: React.FC<SymphonyCyberDAWProps> = ({
       }
     } catch (err: any) {
       if (onNotify) onNotify('Injection error: ' + err.message, 'ALERT');
+    }
+  };
+
+  // Apex Legends LiveAPI Combat Simulator & Sonifier
+  const handleSimulateApexEvent = async (type: 'KILL' | 'DAMAGE' | 'SQUAD_WIPE' | 'RING_CLOSE' | 'VICTORY') => {
+    try {
+      const res = await fetch('/api/apex/simulate-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type }),
+      });
+      const data = await res.json();
+      if (data.success && data.state) {
+        setApexState(data.state);
+        if (onNotify) onNotify(`Apex Event: ${data.event.details}`, 'SUCCESS');
+
+        // Real-Time Audio Sonification into CyberDAW & Ableton Live
+        if (type === 'DAMAGE') {
+          setFilterCutoff(prev => Math.min(16000, prev + 1200));
+        } else if (type === 'KILL') {
+          if (audioCtxRef.current) playTrackSound(tracks[0], audioCtxRef.current.currentTime);
+        } else if (type === 'SQUAD_WIPE') {
+          if (audioCtxRef.current) playTrackSound(tracks[1], audioCtxRef.current.currentTime);
+          handleLiveTransport('record');
+        } else if (type === 'RING_CLOSE') {
+          setBpm(prev => Math.min(180, prev + 4));
+        } else if (type === 'VICTORY') {
+          handleLoadPreset('HIGH_FREQUENCY_ARBITRAGE_144');
+          handleLiveTransport('play');
+        }
+      }
+    } catch (err: any) {
+      if (onNotify) onNotify('Apex simulation error: ' + err.message, 'ALERT');
+    }
+  };
+
+  const handleDeployApexOverlayToObs = async () => {
+    setIsDeployingApexOverlay(true);
+    try {
+      const res = await fetch('/api/obs/call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestType: 'CreateInput',
+          requestData: {
+            sceneName: obsStatus.currentProgramScene || 'Scene',
+            inputName: 'Apex Legends Stream Overlay',
+            inputKind: 'browser_source',
+            inputSettings: {
+              url: 'http://localhost:3000/overlays/apex',
+              width: 1920,
+              height: 1080,
+              fps: 60,
+              shutdown: false,
+              restart_when_active: true,
+            },
+          },
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (onNotify) onNotify('Deployed Apex Legends 60FPS Stream Overlay to OBS Studio!', 'SUCCESS');
+      } else {
+        if (data.error && data.error.includes('already exists')) {
+          if (onNotify) onNotify('Apex Legends Stream Overlay is already active in OBS!', 'INFO');
+        } else {
+          throw new Error(data.error);
+        }
+      }
+    } catch (err: any) {
+      if (onNotify) onNotify('Failed to deploy overlay to OBS: ' + err.message, 'ALERT');
+    } finally {
+      setIsDeployingApexOverlay(false);
     }
   };
 
@@ -1911,6 +2011,20 @@ export const SymphonyCyberDAW: React.FC<SymphonyCyberDAWProps> = ({
               >
                 Chord Progression Vault ({chordVault.length})
               </button>
+              <button
+                onClick={() => setActiveProductionTab('APEX_STREAM_DECK')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition flex items-center gap-1.5 ${
+                  activeProductionTab === 'APEX_STREAM_DECK'
+                    ? 'bg-rose-500 text-white font-bold shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Flame className="w-3.5 h-3.5 text-rose-400" />
+                <span>Apex Legends Stream Deck</span>
+                {apexState.squadsRemaining < 20 && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                )}
+              </button>
             </div>
           </div>
 
@@ -2147,6 +2261,136 @@ export const SymphonyCyberDAW: React.FC<SymphonyCyberDAWProps> = ({
                       </button>
                     </div>
                   ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: APEX LEGENDS LIVEAPI & OBS STREAM DECK */}
+          {activeProductionTab === 'APEX_STREAM_DECK' && (
+            <div className="space-y-4">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-rose-950 text-rose-300 border border-rose-500/40 font-bold flex items-center gap-1">
+                      <Flame className="w-3 h-3 text-rose-400" />
+                      <span>APEX LEGENDS LIVEAPI 2.0 &middot; STREAM BROADCAST SUITE</span>
+                    </span>
+                    <span className="text-slate-400 text-xs">Port :7777 WebSocket Bridge &middot; 60FPS OBS Browser Source</span>
+                  </div>
+                  <p className="text-[10px] text-slate-300 pt-0.5">
+                    Connects directly to the Apex Legends client telemetry feed (ndekopon/overlaytools architecture). Renders real-time HUD overlays in OBS and dynamically sonifies kills, shield cracks, and ring stages into Ableton Live!
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={handleDeployApexOverlayToObs}
+                    disabled={isDeployingApexOverlay}
+                    className="py-1.5 px-3 rounded-lg bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-rose-900/30 cursor-pointer transition disabled:opacity-50"
+                  >
+                    <Tv className="w-3.5 h-3.5" />
+                    <span>{isDeployingApexOverlay ? 'Deploying...' : '1-Click Add Apex Overlay to OBS Studio'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleCopyCode('http://localhost:3000/overlays/apex', 'OBS Overlay URL')}
+                    className="py-1.5 px-2.5 rounded-lg bg-slate-900 hover:bg-slate-850 text-slate-200 border border-slate-750 text-xs font-mono flex items-center gap-1 cursor-pointer"
+                  >
+                    {copiedCodeLabel === 'OBS Overlay URL' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>Copy Overlay URL</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Apex Match Telemetry Status Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
+                  <span className="text-[9px] uppercase font-bold text-slate-400 block mb-0.5">Squads Alive</span>
+                  <span className="text-2xl font-black font-mono text-cyan-400">{apexState.squadsRemaining} / 20</span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
+                  <span className="text-[9px] uppercase font-bold text-slate-400 block mb-0.5">Players Alive</span>
+                  <span className="text-2xl font-black font-mono text-emerald-400">{apexState.playersRemaining} / 60</span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
+                  <span className="text-[9px] uppercase font-bold text-slate-400 block mb-0.5">Squad Kills</span>
+                  <span className="text-2xl font-black font-mono text-rose-400">{apexState.mySquad?.kills || 0}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
+                  <span className="text-[9px] uppercase font-bold text-slate-400 block mb-0.5">Squad Damage</span>
+                  <span className="text-2xl font-black font-mono text-amber-400">{apexState.mySquad?.damage || 0}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
+                  <span className="text-[9px] uppercase font-bold text-slate-400 block mb-0.5">Ring Stage</span>
+                  <span className="text-2xl font-black font-mono text-purple-400">Ring {apexState.ringStage}</span>
+                </div>
+              </div>
+
+              {/* Combat Event Simulator & Ableton Sonifier Toolbar */}
+              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                  <span className="flex items-center gap-1.5 text-rose-300">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Real-Time Combat Telemetry Simulator & Ableton Live Sonifier</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono">Test Stream Overlay Reactions</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  <button
+                    onClick={() => handleSimulateApexEvent('DAMAGE')}
+                    className="py-1.5 px-2 rounded-lg bg-slate-900 hover:bg-slate-850 border border-slate-750 text-cyan-300 text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition shadow"
+                  >
+                    💥 Deal 45 Damage (Filter Sweep)
+                  </button>
+                  <button
+                    onClick={() => handleSimulateApexEvent('KILL')}
+                    className="py-1.5 px-2 rounded-lg bg-rose-950/80 hover:bg-rose-900 border border-rose-600/50 text-rose-200 text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition shadow"
+                  >
+                    🎯 Knock / Kill (Lead Accent)
+                  </button>
+                  <button
+                    onClick={() => handleSimulateApexEvent('SQUAD_WIPE')}
+                    className="py-1.5 px-2 rounded-lg bg-amber-950/80 hover:bg-amber-900 border border-amber-600/50 text-amber-200 text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition shadow"
+                  >
+                    💀 Squad Wipe (Sub-Bass Drop)
+                  </button>
+                  <button
+                    onClick={() => handleSimulateApexEvent('RING_CLOSE')}
+                    className="py-1.5 px-2 rounded-lg bg-purple-950/80 hover:bg-purple-900 border border-purple-600/50 text-purple-200 text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition shadow"
+                  >
+                    🔥 Ring Closing (+4 BPM Tempo)
+                  </button>
+                  <button
+                    onClick={() => handleSimulateApexEvent('VICTORY')}
+                    className="py-1.5 px-2 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/50 text-emerald-200 text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition shadow"
+                  >
+                    👑 Champions (Victory Stems)
+                  </button>
+                </div>
+              </div>
+
+              {/* Live Combat Event Feed */}
+              <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                  Recent Telemetry & Killfeed Stream:
+                </span>
+                <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                  {apexState.recentEvents?.map((evt: any) => (
+                    <div
+                      key={evt.id}
+                      className="p-1.5 rounded bg-slate-900/60 border border-slate-800 text-[10px] font-mono flex items-center justify-between text-slate-300"
+                    >
+                      <span>{evt.details}</span>
+                      <span className="text-[8px] text-slate-500">{new Date(evt.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                  ))}
+                  {(!apexState.recentEvents || apexState.recentEvents.length === 0) && (
+                    <div className="text-slate-500 text-[10px] italic py-2 text-center">
+                      Waiting for Apex Legends match events or click simulation buttons above.
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
