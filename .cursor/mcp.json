@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "Aegentix_Grok_Engine": {
+      "url": "http://127.0.0.1:3000/mcp/sse?token=grok_12f2a06658ec036a6842a1fb9a102815_b992d9fa10b60dab6256b02530e9069f42055ad4595264e055cebc32cdfd6f35"
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "kilo": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Kilo Gateway",
+      "options": {
+        "baseURL": "https://api.kilo.ai/api/gateway/v1"
+      },
+      "models": {
+        "kilo-auto/free": {
+          "name": "Kilo Auto Free"
+        },
+        "nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "name": "Nvidia Nemotron 3 Ultra 550B Free"
+        },
+        "nvidia/nemotron-3.5-super-vl:free": {
+          "name": "Nvidia Nemotron 3.5 Super VL Free"
+        },
+        "cohere/north-mini-code:free": {
+          "name": "Cohere North Mini Code Free"
+        },
+        "liquid/lfm-2.5-2.6b:free": {
+          "name": "Liquid LFM 2.5 Free"
+        }
+      }
+    }
+  },
+  "model": "kilo/kilo-auto/free"
+}
