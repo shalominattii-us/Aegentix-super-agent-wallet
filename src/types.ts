@@ -119,7 +119,9 @@ export interface ThoughtLog {
   timestamp: string;
   level: 'ALERT' | 'INFO' | 'SECURITY' | 'COMPLIANCE';
   step?: string;
-  message: string;
+  message?: string;
+  stage?: string;
+  content?: string;
 }
 
 export interface LLMStatus {
