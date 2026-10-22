@@ -1,29 +1,27 @@
-name: Federal Compliance Continuous ATO Audit
+name: Compliance Script Check (manual)
 
+# Runs only when started by hand. It runs compliance_engine.py once and reports
+# whatever that script returns. It makes no attestation and no compliance claim.
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  audit-controls:
-    name: NIST SP 800-53 Rev 5 & FedRAMP High Audit
+  run-compliance-script:
+    name: Run compliance_engine.py
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
-      - name: Checkout Codebase
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python Compliance Runner
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Verify 1,164 Passing Security Controls
-        run: |
-          python3 compliance_engine.py || echo "Federal baseline controls passing (0 Open POA&Ms)"
-
-      - name: Attest FIPS 140-3 Hardware Sign-off
-        run: |
-          echo "Attestation Hash: 0x$(openssl rand -hex 16)"
-          echo "FedRAMP High Package ID: #F1608249821-HIGH"
-          echo "CMMC 2.0 Level 3 Assessment: 110/110 Passing"
+      - name: Run compliance_engine.py
+        run: python3 compliance_engine.py
