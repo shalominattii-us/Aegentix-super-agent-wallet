@@ -400,8 +400,8 @@ export default function App() {
                 {
                   id: `log-auto-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
                   timestamp: new Date().toLocaleTimeString(),
-                  stage: 'EXECUTE',
-                  content: `[Nonstop Autopilot] Captured +$${payload.latestAlpha} USD on ${payload.targetPair} (Spread: ${payload.spreadPct}%). Block #${payload.blockHeight}.`,
+                  step: 'EXECUTE',
+                  message: `[Nonstop Autopilot] Captured +$${payload.latestAlpha} USD on ${payload.targetPair} (Spread: ${payload.spreadPct}%). Block #${payload.blockHeight}.`,
                   level: 'INFO'
                 },
                 ...prev.slice(0, 50)
