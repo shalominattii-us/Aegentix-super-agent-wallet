@@ -11,7 +11,8 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "test:coinbase-spot": "tsx --test src/coinbase-spot/*.test.ts",
-    "coinbase-spot:readiness": "tsx src/coinbase-spot/readiness.ts"
+    "coinbase-spot:readiness": "tsx src/coinbase-spot/readiness.ts",
+    "coinbase-spot:alpha-one-status": "tsx src/coinbase-spot/alphaOneStatus.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

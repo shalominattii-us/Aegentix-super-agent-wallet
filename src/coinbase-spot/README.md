@@ -35,6 +35,12 @@ npm run test:coinbase-spot
 
 Accounting is local. `POST /api/coinbase-spot/diagnostics` replays the journal only. It does not call Coinbase. Deposits and transfers are external flows, not profit. A sell with no cost basis stays unknown and is not given a zero cost. Unrealized value uses a fresh bid. Net unrealized also needs an exit fee rate you supply; none is assumed. `POST /api/coinbase-spot/candidate-check` compares a candidate with the commissions and slippage you send. A gap from the mid price is not reported as an edge.
 
+The accredited live executor is Alpha One (`alpha_one_trader`), which is not in this repository. This process does not submit orders and does not invent that program's URL. See `ALPHA_ONE_HANDOFF.md`. Observation:
+
+```bash
+npm run coinbase-spot:alpha-one-status
+```
+
 ## Still not account-verified
 
 - No request has been made to `api.coinbase.com` from this workspace.

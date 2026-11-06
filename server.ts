@@ -14,6 +14,7 @@ import { SHALOMINATTII_REPOS as ALL_GITHUB_REPOS, GITHUB_USER_PROFILE } from './
 import { grokMcpRouter } from './src/mcp/grokMcpServer.ts';
 import { OMNICYBERDEX_UNAVAILABLE } from './src/coinbase-spot/unavailable.ts';
 import { authorizeOperator, candidateCheckResponse, diagnosticsResponse, guardedRead, statusPayload } from './src/coinbase-spot/httpRoutes.ts';
+import { readRelayConfig } from './src/coinbase-spot/alphaOneContract.ts';
 import { nexusRegistry } from './src/nexus/nexusRegistryEngine.ts';
 import { ANTI_TRAFFICKING_DATASETS, evaluateAntiTraffickingCompliance } from './src/data/antiTraffickingDatasets.ts';
 import { generateAbletonLiveXml } from './src/utils/abletonLiveSetGenerator.ts';
@@ -6528,6 +6529,11 @@ app.post('/api/omnicyberdex/execute', (req, res) => {
 app.get('/api/coinbase-spot/status', (req, res) => {
   if (denyUnlessOperator(req, res)) return;
   res.json(statusPayload(process.env));
+});
+
+app.get('/api/coinbase-spot/alpha-one', (req, res) => {
+  if (denyUnlessOperator(req, res)) return;
+  res.json({ ...readRelayConfig(process.env), networkCalled: false, submitEnabled: false });
 });
 
 app.post('/api/coinbase-spot/read', async (req, res) => {

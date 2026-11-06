@@ -9,4 +9,6 @@ export { spendableBalance } from './reservation.ts';
 export { OMNICYBERDEX_UNAVAILABLE, coinbaseSpotPublicStatus } from './unavailable.ts';
 export { createCoinbaseHttpAdapter, envCredentialProvider, MUTATION_ARM_PHRASE, assertMutationPolicy } from './http.ts';
 export { authorizeOperator, guardedRead, statusPayload } from './httpRoutes.ts';
-export { SPOT_PRODUCTS } from './types.ts';
+export { readRelayConfig, ACCREDITED_TRADER } from './alphaOneContract.ts';
+export { createAlphaOneCoordinator } from './alphaOneCoordinator.ts';
+export { createReceiverReference } from './alphaOneReceiverReference.ts';
