@@ -12,6 +12,7 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { SHALOMINATTII_REPOS as ALL_GITHUB_REPOS, GITHUB_USER_PROFILE } from './src/data/githubReposData.ts';
 import { grokMcpRouter } from './src/mcp/grokMcpServer.ts';
+import { coinbaseSpotPublicStatus, OMNICYBERDEX_UNAVAILABLE } from './src/coinbase-spot/unavailable.ts';
 import { nexusRegistry } from './src/nexus/nexusRegistryEngine.ts';
 import { ANTI_TRAFFICKING_DATASETS, evaluateAntiTraffickingCompliance } from './src/data/antiTraffickingDatasets.ts';
 import { generateAbletonLiveXml } from './src/utils/abletonLiveSetGenerator.ts';
@@ -6502,52 +6503,20 @@ app.post('/api/sovereign-portal/test-harness/run', (_req, res) => {
 // OMNICYBERDEX MASTER ORCHESTRATOR API
 // ============================================
 
-let omniEngines = [
-  {
-    id: 'binance_us',
-    name: 'Binance US Engine',
-    scriptPath: 'C:\\AEGENTIX-WORKSPACE\\omnicyberdex\\engines\\binance_us_engine.py',
-    exchange: 'Binance US',
-    status: 'ACTIVE_TRADING',
-    latencyMs: 14.2,
-    totalVolume24hUsd: 1425800,
-    ordersExecuted24h: 312,
-    pnl24hUsd: 4892.4,
-    pnl24hPct: 3.42,
-  },
-  {
-    id: 'finance_us',
-    name: 'Finance US CEX/DEX Engine',
-    scriptPath: 'C:\\AEGENTIX-WORKSPACE\\src\\python\\finance_us_engine.py',
-    exchange: 'Finance US CEX/DEX',
-    status: 'ACTIVE_TRADING',
-    latencyMs: 18.5,
-    totalVolume24hUsd: 1894200,
-    ordersExecuted24h: 428,
-    pnl24hUsd: 6140.2,
-    pnl24hPct: 4.18,
-  },
-];
-
 // GET /api/omnicyberdex/engines
+// The previous handler reported ACTIVE_TRADING and fixed profit. Those figures were not measured.
 app.get('/api/omnicyberdex/engines', (_req, res) => {
-  res.json({ success: true, engines: omniEngines, timestamp: new Date().toISOString() });
+  res.status(501).json({ ...OMNICYBERDEX_UNAVAILABLE, timestamp: new Date().toISOString() });
 });
 
 // POST /api/omnicyberdex/execute
-app.post('/api/omnicyberdex/execute', (req, res) => {
-  const { pair, route, amountUsd } = req.body || {};
-  res.json({
-    success: true,
-    txId: `OMNI-TX-${Date.now()}`,
-    pair: pair || 'XRP/USD',
-    route: route || 'BUY_BINANCE_SELL_FINANCE',
-    amountUsd: amountUsd || 10000,
-    latencyMs: 16.4,
-    pnlUsd: 184.2,
-    status: 'FILLED',
-    timestamp: new Date().toISOString(),
-  });
+// No order is created. The previous FILLED / pnlUsd 184.2 body was a placeholder.
+app.post('/api/omnicyberdex/execute', (_req, res) => {
+  res.status(501).json({ ...OMNICYBERDEX_UNAVAILABLE, timestamp: new Date().toISOString() });
+});
+
+app.get('/api/coinbase-spot/status', (_req, res) => {
+  res.json(coinbaseSpotPublicStatus());
 });
 
 // ============================================
