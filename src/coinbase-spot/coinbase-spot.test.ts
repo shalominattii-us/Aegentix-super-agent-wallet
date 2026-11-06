@@ -265,7 +265,7 @@ describe('execution controls', () => {
 });
 
 describe('pnl and journal', () => {
-  it('realizes FIFO profit after a sell and refuses an uncovered sell', () => {
+  it('realizes FIFO profit after a sell and leaves an uncovered sell without a zero basis', () => {
     let state = emptyPnl();
     state = applyFill(state, {
       fillId: 'b',
@@ -293,10 +293,10 @@ describe('pnl and journal', () => {
       portfolioId: PORTFOLIO,
       observedAt: '2026-01-01T00:01:00Z',
     });
-    assert.equal(state.realizedQuote, '0.3');
+    assert.equal(state.realizedNetQuote, '0.3');
     const marked = markToMarket(state, 'BTC-USD', null);
     assert.equal(marked.unrealized.status, 'unknown');
-    assert.throws(() => applyFill(state, {
+    const extra = applyFill(state, {
       fillId: 'extra',
       orderId: 'o3',
       clientOrderId: 'c3',
@@ -308,7 +308,10 @@ describe('pnl and journal', () => {
       commissionCurrency: 'USD',
       portfolioId: PORTFOLIO,
       observedAt: '2026-01-01T00:02:00Z',
-    }), /cost/i);
+    });
+    assert.equal(extra.realizedNetQuote, '0.3');
+    assert.equal(extra.unknownBasisSold['BTC-USD'], '0.01');
+    assert.equal(extra.costBasisIncomplete, true);
   });
 
   it('reloads a file journal without dropping a corrupt line quietly', async () => {

@@ -31,6 +31,7 @@ export interface CoinbaseSpotAdapter {
   cancelOrders(orderIds: readonly string[]): Promise<never>;
   getOrder(orderId: string): Promise<OrderSnapshot>;
   listFills(orderId: string): Promise<FillRecord[]>;
+  listPortfolioFills(): Promise<FillRecord[]>;
 }
 
 const KNOWN_ORDER_STATUSES = new Set([
@@ -136,5 +137,6 @@ export function createDisabledAdapter(): CoinbaseSpotAdapter {
     },
     getOrder: refuse,
     listFills: refuse,
+    listPortfolioFills: refuse,
   };
 }

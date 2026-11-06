@@ -191,10 +191,15 @@ export function parseFill(value: unknown): FillRecord {
   if (!commissionCurrency) throw new SpotError('PAYLOAD_REJECTED', 'Fill commission_currency is not supported');
   const baseSize = optionalDecimal(body.size);
   const price = optionalDecimal(body.price);
-  const fillId = String(body.entry_id ?? body.trade_id ?? '');
+  const entryId = typeof body.entry_id === 'string' && body.entry_id ? body.entry_id : null;
+  const tradeId = typeof body.trade_id === 'string' && body.trade_id ? body.trade_id : null;
+  const fillId = entryId ?? tradeId ?? '';
   if (!fillId || !baseSize || !price) throw new SpotError('PAYLOAD_REJECTED', 'Fill is missing id, size, or price');
   return {
     fillId,
+    entryId,
+    tradeId,
+    source: 'coinbase_advanced_trade',
     orderId: String(body.order_id ?? ''),
     clientOrderId: String(body.client_order_id ?? ''),
     productId,
@@ -209,7 +214,12 @@ export function parseFill(value: unknown): FillRecord {
 }
 
 function clip(text: string): string {
-  return text.replace(/\s+/g, ' ').slice(0, 300);
+  return text
+    .replace(/\s+/g, ' ')
+    .replace(/-----BEGIN [^-]+-----[\s\S]*?-----END [^-]+-----/g, '[redacted-pem]')
+    .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
+    .replace(/(api[_-]?key|secret|private[_-]?key)\s*[:=]\s*\S+/gi, '$1=[redacted]')
+    .slice(0, 300);
 }
 
 export function createCoinbaseHttpAdapter(options: HttpAdapterOptions): CoinbaseSpotAdapter {
@@ -395,6 +405,10 @@ export function createCoinbaseHttpAdapter(options: HttpAdapterOptions): Coinbase
         'fills',
       );
       return rows.map(parseFill).filter((fill) => fill.orderId === orderId && fill.portfolioId === options.portfolioId);
+    },
+    async listPortfolioFills(): Promise<FillRecord[]> {
+      const rows = await pages('/api/v3/brokerage/orders/historical/fills', { retail_portfolio_id: options.portfolioId }, 'fills');
+      return rows.map(parseFill).filter((fill) => fill.portfolioId === options.portfolioId);
     },
   };
 }

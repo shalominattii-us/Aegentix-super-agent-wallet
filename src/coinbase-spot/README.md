@@ -15,6 +15,7 @@ Set these in the server environment. Do not commit them and do not print the sec
 | `COINBASE_PORTFOLIO_ID` | For a future read | The single portfolio uuid |
 | `COINBASE_SPOT_OPERATOR_TOKEN` | For the HTTP routes | At least 16 characters |
 | `COINBASE_SPOT_ALLOW_NETWORK_READ` | Leave unset | `POST /api/coinbase-spot/read` calls Coinbase only when this is `1` |
+| `COINBASE_SPOT_JOURNAL_PATH` | For diagnostics | Append-only journal file. If unset, `POST /api/coinbase-spot/diagnostics` returns 409 and does not invent a book |
 
 Signing follows the official REST client: the JWT `uri` is `{METHOD} api.coinbase.com{path}` and does **not** include the query string. Query parameters are sent on the URL only. That matches `coinbase-advanced-py` `RESTBase.set_headers`. It has been checked with generated keys and a mock fetch, not against a funded account.
 
@@ -31,6 +32,8 @@ Tests, also with no network:
 ```bash
 npm run test:coinbase-spot
 ```
+
+Accounting is local. `POST /api/coinbase-spot/diagnostics` replays the journal only. It does not call Coinbase. Deposits and transfers are external flows, not profit. A sell with no cost basis stays unknown and is not given a zero cost. Unrealized value uses a fresh bid. Net unrealized also needs an exit fee rate you supply; none is assumed. `POST /api/coinbase-spot/candidate-check` compares a candidate with the commissions and slippage you send. A gap from the mid price is not reported as an edge.
 
 ## Still not account-verified
 

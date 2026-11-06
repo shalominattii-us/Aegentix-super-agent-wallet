@@ -118,6 +118,9 @@ export interface FillRecord {
   commissionCurrency: SpotCurrency;
   portfolioId: string;
   observedAt: string;
+  entryId?: string | null;
+  tradeId?: string | null;
+  source?: 'coinbase_advanced_trade' | 'paper' | 'unknown';
 }
 
 export interface OperatorIntent {

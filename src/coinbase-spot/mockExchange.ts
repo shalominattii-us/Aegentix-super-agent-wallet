@@ -174,6 +174,10 @@ export class MockCoinbaseExchange implements CoinbaseSpotAdapter {
     return this.fills.filter((fill) => fill.orderId === orderId).map((fill) => ({ ...fill }));
   }
 
+  async listPortfolioFills(): Promise<FillRecord[]> {
+    return this.fills.filter((fill) => fill.portfolioId === this.options.portfolioId).map((fill) => ({ ...fill }));
+  }
+
   /** Test helper. Applies a full fill and the matching balance change. Not a live trade. */
   fillOrder(orderId: string, price: string): FillRecord {
     const order = this.orders.get(orderId);

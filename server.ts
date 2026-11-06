@@ -13,7 +13,7 @@ import { GoogleGenAI } from '@google/genai';
 import { SHALOMINATTII_REPOS as ALL_GITHUB_REPOS, GITHUB_USER_PROFILE } from './src/data/githubReposData.ts';
 import { grokMcpRouter } from './src/mcp/grokMcpServer.ts';
 import { OMNICYBERDEX_UNAVAILABLE } from './src/coinbase-spot/unavailable.ts';
-import { authorizeOperator, guardedRead, statusPayload } from './src/coinbase-spot/httpRoutes.ts';
+import { authorizeOperator, candidateCheckResponse, diagnosticsResponse, guardedRead, statusPayload } from './src/coinbase-spot/httpRoutes.ts';
 import { nexusRegistry } from './src/nexus/nexusRegistryEngine.ts';
 import { ANTI_TRAFFICKING_DATASETS, evaluateAntiTraffickingCompliance } from './src/data/antiTraffickingDatasets.ts';
 import { generateAbletonLiveXml } from './src/utils/abletonLiveSetGenerator.ts';
@@ -6532,6 +6532,16 @@ app.get('/api/coinbase-spot/status', (req, res) => {
 
 app.post('/api/coinbase-spot/read', async (req, res) => {
   const result = await guardedRead(process.env, globalThis.fetch.bind(globalThis), req.header('authorization'));
+  res.status(result.status).json(result.body);
+});
+
+app.post('/api/coinbase-spot/diagnostics', async (req, res) => {
+  const result = await diagnosticsResponse(process.env, req.header('authorization'), req.body ?? {});
+  res.status(result.status).json(result.body);
+});
+
+app.post('/api/coinbase-spot/candidate-check', (req, res) => {
+  const result = candidateCheckResponse(req.header('authorization'), process.env, req.body ?? null);
   res.status(result.status).json(result.body);
 });
 

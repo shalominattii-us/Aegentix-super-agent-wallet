@@ -3,7 +3,8 @@ export { createDisabledAdapter, parsePreview, parseProduct, classifyOrderStatus 
 export { MockCoinbaseExchange } from './mockExchange.ts';
 export { createOrchestrator, readinessBlockers } from './orchestrator.ts';
 export { MemoryJournal, FileJournal } from './journal.ts';
-export { applyFill, markToMarket, emptyPnl } from './pnl.ts';
+export { applyFill, markToMarket, emptyPnl, replayActivity, assessRoundTrip, performanceSinceBaseline } from './pnl.ts';
+export { buildDiagnostics, importActivity } from './diagnostics.ts';
 export { spendableBalance } from './reservation.ts';
 export { OMNICYBERDEX_UNAVAILABLE, coinbaseSpotPublicStatus } from './unavailable.ts';
 export { createCoinbaseHttpAdapter, envCredentialProvider, MUTATION_ARM_PHRASE, assertMutationPolicy } from './http.ts';

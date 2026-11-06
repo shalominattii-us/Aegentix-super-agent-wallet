@@ -1,7 +1,11 @@
 import { timingSafeEqual } from 'node:crypto';
 import { SpotError } from './errors.ts';
+import { buildDiagnostics } from './diagnostics.ts';
+import { assessRoundTrip, type VerifiedBid } from './ledger.ts';
+import { FileJournal } from './journal.ts';
 import { createCoinbaseHttpAdapter, envCredentialProvider, type FetchLike } from './http.ts';
 import { coinbaseSpotPublicStatus } from './unavailable.ts';
+import type { SpotProductId } from './types.ts';
 
 export interface OperatorDecision {
   status: number;
@@ -104,4 +108,37 @@ export async function guardedRead(
       },
     };
   }
+}
+
+export async function diagnosticsResponse(env: NodeJS.ProcessEnv, authorization: string | undefined, body: { nowMs?: number; maxMarkAgeMs?: number; bids?: Partial<Record<SpotProductId, VerifiedBid>>; exitFeeRate?: string | null } = {}): Promise<OperatorDecision> {
+  const denied = authorizeOperator(authorization, env);
+  if (denied) return denied;
+  const journalPath = env.COINBASE_SPOT_JOURNAL_PATH?.trim() ?? '';
+  if (!journalPath) {
+    return { status: 409, body: { ok: false, code: 'JOURNAL_UNCONFIGURED', accountVerified: false, message: 'Set COINBASE_SPOT_JOURNAL_PATH. No empty book was invented.' } };
+  }
+  if (!Number.isInteger(body.maxMarkAgeMs) || (body.maxMarkAgeMs ?? -1) < 0) {
+    return { status: 409, body: { ok: false, code: 'MARK_AGE_REQUIRED', accountVerified: false, message: 'maxMarkAgeMs is required. No freshness window is assumed.' } };
+  }
+  const state = await new FileJournal(journalPath).load();
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      ...buildDiagnostics({
+        state,
+        nowMs: body.nowMs ?? Date.now(),
+        maxMarkAgeMs: body.maxMarkAgeMs as number,
+        bids: body.bids,
+        exitFeeRate: body.exitFeeRate ?? null,
+      }),
+    },
+  };
+}
+
+export function candidateCheckResponse(authorization: string | undefined, env: NodeJS.ProcessEnv, body: Parameters<typeof assessRoundTrip>[0] | null): OperatorDecision {
+  const denied = authorizeOperator(authorization, env);
+  if (denied) return denied;
+  if (!body) return { status: 400, body: { ok: false, code: 'BODY_REQUIRED', accountVerified: false } };
+  return { status: 200, body: { ok: true, accountVerified: false, liveEngine: false, assessment: assessRoundTrip(body) } };
 }

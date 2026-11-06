@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import type { InventoryMovement } from './ledger.ts';
 import type { FillRecord, IntentState, OperatorIntent, PreviewResult, Reservation, SpotProductId } from './types.ts';
 
 export interface StoredIntent {
@@ -20,6 +21,7 @@ export interface JournalEvent {
   at: string;
   intent?: StoredIntent;
   fill?: FillRecord;
+  movement?: InventoryMovement;
   clientIntentId?: string;
   engaged?: boolean;
   reason?: string;
@@ -29,10 +31,11 @@ export interface JournalState {
   killSwitchEngaged: boolean;
   intents: Map<string, StoredIntent>;
   fills: FillRecord[];
+  movements: InventoryMovement[];
 }
 
 export function emptyJournalState(): JournalState {
-  return { killSwitchEngaged: true, intents: new Map(), fills: [] };
+  return { killSwitchEngaged: true, intents: new Map(), fills: [], movements: [] };
 }
 
 export function reduceJournal(events: readonly JournalEvent[]): JournalState {
@@ -43,7 +46,11 @@ export function reduceJournal(events: readonly JournalEvent[]): JournalState {
     } else if (event.type === 'intent' && event.intent) {
       state.intents.set(event.intent.intent.clientIntentId, event.intent);
     } else if (event.type === 'fill' && event.fill) {
-      if (!state.fills.some((fill) => fill.fillId === event.fill?.fillId)) state.fills.push(event.fill);
+      if (event.fill.fillId && !state.fills.some((fill) => fill.fillId === event.fill?.fillId)) state.fills.push(event.fill);
+    } else if (event.type === 'movement' && event.movement) {
+      if (event.movement.movementId && !state.movements.some((movement) => movement.movementId === event.movement?.movementId)) {
+        state.movements.push(event.movement);
+      }
     } else {
       throw new Error(`Unknown journal event ${event.type}`);
     }
