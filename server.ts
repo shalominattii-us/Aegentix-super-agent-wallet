@@ -12,7 +12,8 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { SHALOMINATTII_REPOS as ALL_GITHUB_REPOS, GITHUB_USER_PROFILE } from './src/data/githubReposData.ts';
 import { grokMcpRouter } from './src/mcp/grokMcpServer.ts';
-import { coinbaseSpotPublicStatus, OMNICYBERDEX_UNAVAILABLE } from './src/coinbase-spot/unavailable.ts';
+import { OMNICYBERDEX_UNAVAILABLE } from './src/coinbase-spot/unavailable.ts';
+import { authorizeOperator, guardedRead, statusPayload } from './src/coinbase-spot/httpRoutes.ts';
 import { nexusRegistry } from './src/nexus/nexusRegistryEngine.ts';
 import { ANTI_TRAFFICKING_DATASETS, evaluateAntiTraffickingCompliance } from './src/data/antiTraffickingDatasets.ts';
 import { generateAbletonLiveXml } from './src/utils/abletonLiveSetGenerator.ts';
@@ -6503,20 +6504,35 @@ app.post('/api/sovereign-portal/test-harness/run', (_req, res) => {
 // OMNICYBERDEX MASTER ORCHESTRATOR API
 // ============================================
 
+function denyUnlessOperator(req: express.Request, res: express.Response): boolean {
+  const denied = authorizeOperator(req.header('authorization'), process.env);
+  if (!denied) return false;
+  res.status(denied.status).json(denied.body);
+  return true;
+}
+
 // GET /api/omnicyberdex/engines
 // The previous handler reported ACTIVE_TRADING and fixed profit. Those figures were not measured.
-app.get('/api/omnicyberdex/engines', (_req, res) => {
+app.get('/api/omnicyberdex/engines', (req, res) => {
+  if (denyUnlessOperator(req, res)) return;
   res.status(501).json({ ...OMNICYBERDEX_UNAVAILABLE, timestamp: new Date().toISOString() });
 });
 
 // POST /api/omnicyberdex/execute
 // No order is created. The previous FILLED / pnlUsd 184.2 body was a placeholder.
-app.post('/api/omnicyberdex/execute', (_req, res) => {
+app.post('/api/omnicyberdex/execute', (req, res) => {
+  if (denyUnlessOperator(req, res)) return;
   res.status(501).json({ ...OMNICYBERDEX_UNAVAILABLE, timestamp: new Date().toISOString() });
 });
 
-app.get('/api/coinbase-spot/status', (_req, res) => {
-  res.json(coinbaseSpotPublicStatus());
+app.get('/api/coinbase-spot/status', (req, res) => {
+  if (denyUnlessOperator(req, res)) return;
+  res.json(statusPayload(process.env));
+});
+
+app.post('/api/coinbase-spot/read', async (req, res) => {
+  const result = await guardedRead(process.env, globalThis.fetch.bind(globalThis), req.header('authorization'));
+  res.status(result.status).json(result.body);
 });
 
 // ============================================

@@ -9,8 +9,8 @@ import { SpotError } from './errors.ts';
  *   iss=cdp, sub=key name, nbf, exp=nbf+120, uri="{METHOD} api.coinbase.com{path}".
  *   Header kid and a 16-byte hex nonce. No `aud` claim in that sample.
  * - Ed25519 / EdDSA. CDP JWT sample: the same claims plus aud=["cdp_service"].
- *   The secret is base64 of 64 bytes, seed || public key. Only the first 32 bytes sign.
- *   A bare 32-byte seed is rejected because that format is not the published REST sample.
+ *   coinbase-advanced-py accepts a base64 seed of 32 bytes, or 64 bytes (seed || public key) and signs with the first 32.
+ *   A 64-byte secret is checked so the public suffix matches the seed. Other lengths are rejected.
  *
  * Coinbase App SDKs accept ES256 only. This module signs requests; it does not perform them.
  */
@@ -43,38 +43,49 @@ function decodeJsonPart(part: string): unknown {
   return JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
 }
 
-export function formatJwtUri(method: string, pathAndQuery: string, host = ADVANCED_TRADE_HOST): string {
+/**
+ * JWT `uri` is `{METHOD} {host}{path}` with no query string.
+ * coinbase-advanced-py `RESTBase.set_headers` signs `f"{method} {base_url}{path}"`
+ * and sends query parameters separately via `requests` `params`. Confirmed against
+ * that SDK source, not against a live account.
+ */
+export function formatJwtUri(method: string, path: string, host = ADVANCED_TRADE_HOST): string {
   if (!/^[A-Z]+$/.test(method)) {
     throw new SpotError('AUTH_METHOD', 'JWT method must be uppercase');
   }
-  if (!pathAndQuery.startsWith('/')) {
+  if (!path.startsWith('/')) {
     throw new SpotError('AUTH_PATH', 'JWT path must start with /');
   }
-  return `${method} ${host}${pathAndQuery}`;
+  if (path.includes('?') || path.includes('#')) {
+    throw new SpotError('AUTH_PATH', 'JWT uri signs the path only. Do not include a query string.');
+  }
+  return `${method} ${host}${path}`;
 }
 
-function ed25519KeyFromOfficialSecret(secret: string): { privateKey: KeyObject; publicRaw: Buffer } {
-  const decoded = Buffer.from(secret, 'base64');
-  if (decoded.length !== 64 || secret.includes('BEGIN ')) {
+function ed25519KeyFromRaw(secret: string): KeyObject {
+  const decoded = Buffer.from(secret.replace(/\s+/g, ''), 'base64');
+  if ((decoded.length !== 32 && decoded.length !== 64) || secret.includes('BEGIN ')) {
     throw new SpotError(
       'AUTH_KEY_UNSUPPORTED',
-      'Ed25519 Advanced Trade secrets must be the published 64-byte base64 seed||public key. A 32-byte seed alone is not accepted.',
+      'Ed25519 secrets must be base64 of 32 bytes (seed) or 64 bytes (seed || public key), matching coinbase-advanced-py.',
     );
   }
   const seed = decoded.subarray(0, 32);
-  const advertised = decoded.subarray(32, 64);
   const pkcs8Prefix = Buffer.from('302e020100300506032b657004220420', 'hex');
   const privateKey = createPrivateKey({
     key: Buffer.concat([pkcs8Prefix, seed]),
     format: 'der',
     type: 'pkcs8',
   });
-  const spki = createPublicKey(privateKey).export({ format: 'der', type: 'spki' }) as Buffer;
-  const derived = spki.subarray(spki.length - 32);
-  if (!derived.equals(advertised)) {
-    throw new SpotError('AUTH_KEY_MISMATCH', 'Ed25519 public suffix does not match the seed');
+  if (decoded.length === 64) {
+    const advertised = decoded.subarray(32);
+    const spki = createPublicKey(privateKey).export({ format: 'der', type: 'spki' }) as Buffer;
+    const derived = spki.subarray(spki.length - 32);
+    if (!derived.equals(advertised)) {
+      throw new SpotError('AUTH_KEY_MISMATCH', 'Ed25519 public suffix does not match the seed');
+    }
   }
-  return { privateKey, publicRaw: advertised };
+  return privateKey;
 }
 
 function loadSigningKey(secret: string): { algorithm: SupportedJwtAlg; privateKey: KeyObject; includeAudience: boolean } {
@@ -101,8 +112,7 @@ function loadSigningKey(secret: string): { algorithm: SupportedJwtAlg; privateKe
       `Key type ${String(privateKey.asymmetricKeyType)} is not an Advanced Trade ES256 or Ed25519 key`,
     );
   }
-  const loaded = ed25519KeyFromOfficialSecret(trimmed);
-  return { algorithm: 'EdDSA', privateKey: loaded.privateKey, includeAudience: true };
+  return { algorithm: 'EdDSA', privateKey: ed25519KeyFromRaw(trimmed), includeAudience: true };
 }
 
 export function buildAdvancedTradeJwt(input: {

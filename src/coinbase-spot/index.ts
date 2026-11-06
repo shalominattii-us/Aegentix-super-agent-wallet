@@ -6,4 +6,6 @@ export { MemoryJournal, FileJournal } from './journal.ts';
 export { applyFill, markToMarket, emptyPnl } from './pnl.ts';
 export { spendableBalance } from './reservation.ts';
 export { OMNICYBERDEX_UNAVAILABLE, coinbaseSpotPublicStatus } from './unavailable.ts';
+export { createCoinbaseHttpAdapter, envCredentialProvider, MUTATION_ARM_PHRASE, assertMutationPolicy } from './http.ts';
+export { authorizeOperator, guardedRead, statusPayload } from './httpRoutes.ts';
 export { SPOT_PRODUCTS } from './types.ts';

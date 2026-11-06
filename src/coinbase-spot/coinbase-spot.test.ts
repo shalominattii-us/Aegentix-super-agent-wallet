@@ -99,7 +99,7 @@ describe('auth', () => {
     assert.equal('aud' in checked.payload, false);
   });
 
-  it('signs Ed25519 using the published 64-byte secret and rejects a bare seed', () => {
+  it('signs Ed25519 for 64-byte and 32-byte secrets and rejects a query in the uri', () => {
     const { privateKey, publicKey } = generateKeyPairSync('ed25519');
     const spki = publicKey.export({ format: 'der', type: 'spki' }) as Buffer;
     const pkcs8 = privateKey.export({ format: 'der', type: 'pkcs8' }) as Buffer;
@@ -109,7 +109,16 @@ describe('auth', () => {
     assert.equal(signed.algorithm, 'EdDSA');
     const checked = verifyAdvancedTradeJwt(signed.token, secret);
     assert.deepEqual(checked.payload.aud, ['cdp_service']);
-    assert.throws(() => buildAdvancedTradeJwt({ key: { ...key, keySecret: Buffer.alloc(32).toString('base64') }, method: 'GET', pathAndQuery: '/api/v3/brokerage/accounts' }), /64-byte/);
+    const seedOnly = buildAdvancedTradeJwt({
+      key: { ...key, keySecret: Buffer.from(secret, 'base64').subarray(0, 32).toString('base64') },
+      method: 'GET',
+      pathAndQuery: '/api/v3/brokerage/accounts',
+      nowSeconds: 10,
+      nonce: 'ef'.repeat(16),
+    });
+    assert.equal(seedOnly.algorithm, 'EdDSA');
+    assert.throws(() => buildAdvancedTradeJwt({ key, method: 'GET', pathAndQuery: '/api/v3/brokerage/accounts?limit=1' }), /query string/);
+    assert.throws(() => buildAdvancedTradeJwt({ key: { ...key, keySecret: Buffer.alloc(16).toString('base64') }, method: 'GET', pathAndQuery: '/api/v3/brokerage/accounts' }), /32 bytes/);
   });
 
   it('rejects a non-P-256 EC key instead of guessing ES256', () => {
@@ -146,6 +155,7 @@ describe('funds and sizing', () => {
       averageFilledPrice: null,
       totalFees: '0',
       feeCurrency: null,
+      outstandingHoldAmount: '200',
     } satisfies OrderSnapshot);
     const { orchestrator: orch } = { orchestrator: createOrchestrator({ adapter: ex, portfolioId: PORTFOLIO, journal: new MemoryJournal(), now: () => Date.now() }) };
     await orch.releaseKillSwitch('test');

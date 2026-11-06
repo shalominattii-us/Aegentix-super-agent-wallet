@@ -3,7 +3,7 @@ import { LiveSubmissionDisabledError, SpotError } from './errors.ts';
 import { classifyOrderStatus, type CoinbaseSpotAdapter } from './adapter.ts';
 import { localReservations, type Journal, type JournalState, type StoredIntent } from './journal.ts';
 import { applyFill, emptyPnl, markToMarket, type MarkedPnl, type PnlState } from './pnl.ts';
-import { openOrdersRequireHold, spendableBalance } from './reservation.ts';
+import { attributeHolds, orderReservesCurrency, spendableBalance } from './reservation.ts';
 import {
   baseCurrency,
   isSpotProduct,
@@ -53,7 +53,7 @@ export interface Orchestrator {
   status(): Promise<{
     killSwitchEngaged: boolean;
     liveSubmission: false;
-    executionMode: 'disabled' | 'mock';
+    executionMode: 'disabled' | 'mock' | 'http';
     intents: StoredIntent[];
   }>;
 }
@@ -256,11 +256,16 @@ export function createOrchestrator(options: {
           const accounts = await options.adapter.listAccounts();
           const currency: SpotCurrency = intent.side === 'BUY' ? quoteCurrency(intent.productId) : baseCurrency(intent.productId);
           const account = accountFor(accounts, currency);
-          const openOrders = (await options.adapter.listOpenOrders(intent.productId)).filter(
-            (order) => order.portfolioId === options.portfolioId,
+          const openOrders = (await options.adapter.listOpenOrders()).filter(
+            (order) => order.portfolioId === options.portfolioId && orderReservesCurrency(order, currency),
           );
-          openOrdersRequireHold(openOrders.length, account.hold);
-          const funds = spendableBalance(account, localReservations(book));
+          const attribution = attributeHolds(account, openOrders);
+          if (!attribution.ok) return failure('HOLD_AMBIGUOUS', attribution.message, intent.clientIntentId);
+          const covered = new Set(openOrders.map((order) => order.clientOrderId));
+          const funds = spendableBalance(
+            account,
+            localReservations(book).filter((reservation) => !covered.has(reservation.clientIntentId)),
+          );
           const sized = await sizeToFunds(intent, product, funds.spendable);
           if ('ok' in sized) return sized;
           const reserveAmount = intent.side === 'BUY' ? sized.preview.orderTotal : sized.baseSize;
@@ -405,22 +410,20 @@ export function createOrchestrator(options: {
             intent.reservation = null;
           } else {
             intent.state = 'WORKING';
-            const accounts = await options.adapter.listAccounts();
-            const openOrders = (await options.adapter.listOpenOrders(intent.intent.productId)).filter(
-              (order) => order.portfolioId === options.portfolioId && order.clientOrderId === intent.intent.clientIntentId,
-            );
-            const currency = intent.reservation?.currency;
-            const account = currency
-              ? accounts.find((item) => item.portfolioId === options.portfolioId && item.currency === currency)
-              : undefined;
-            if (intent.reservation && account && openOrders.length === 1 && cmp(account.hold, '0') > 0 && intent.preview && intent.stagedBaseSize && intent.limitPrice) {
-              if (intent.intent.side === 'BUY' && intent.reservation.currency === 'USD') {
-                const notional = mul(intent.stagedBaseSize, intent.limitPrice);
-                const feeLeft = cmp(intent.preview.orderTotal, notional) > 0 ? sub(intent.preview.orderTotal, notional) : '0';
-                intent.reservation = cmp(feeLeft, '0') === 0 ? null : { ...intent.reservation, amount: feeLeft };
-              } else {
-                intent.reservation = null;
-              }
+            if (intent.reservation) {
+              const accounts = await options.adapter.listAccounts();
+              const account = accounts.find(
+                (item) => item.portfolioId === options.portfolioId && item.currency === intent.reservation?.currency,
+              );
+              const openOrders = account
+                ? (await options.adapter.listOpenOrders()).filter(
+                    (order) => order.portfolioId === options.portfolioId && orderReservesCurrency(order, account.currency),
+                  )
+                : [];
+              const attribution = account ? attributeHolds(account, openOrders) : { ok: false as const, message: 'Account missing' };
+              const covered = openOrders.some((order) => order.clientOrderId === intent.intent.clientIntentId);
+              if (attribution.ok && covered) intent.reservation = null;
+              else intent.message = attribution.ok ? intent.message : attribution.message;
             }
           }
           await writeIntent(intent);
@@ -458,13 +461,12 @@ export function createOrchestrator(options: {
 
 export function readinessBlockers(): string[] {
   return [
-    'No live HTTP client is compiled into this module. Reads and order placement both refuse unless a test mock is injected.',
-    'Live submission stays off. Releasing the kill switch does not arm a network order.',
-    'Credentials are not read from the environment and are not provisioned here.',
-    'A portfolio id, fresh book, venue product increments, and an operator max slippage must be supplied per intent. None of those have defaults that approve a trade.',
-    'JWT signing implements the published ES256 and Ed25519 REST samples. It has not been exercised against api.coinbase.com.',
-    'Query strings are included in the signed URI when a request has them. Coinbase samples show paths without query strings, so a live read still needs a separate check.',
-    'Realized PnL is FIFO from recorded fills only. Unrealized PnL stays unknown until the caller supplies a mark. This module does not invent a price or an edge.',
-    'The portal OmniCyberDEX screen is a separate local simulation and was not changed.',
+    'The HTTP adapter is implemented and tested with a mock fetch only. This process has not called api.coinbase.com.',
+    'JWT uri signs the path and not the query string, matching coinbase-advanced-py RESTBase.set_headers. That was checked against the SDK source and generated keys, not against a live account.',
+    'Live submission stays off. A passing arming phrase still throws before any cancel or create request.',
+    'Credentials are read only when a caller invokes the HTTP adapter. The readiness command prints presence flags and does not read or print secret values.',
+    'Overlapping holds must sum exactly to the account hold. Any mismatch blocks a new spend.',
+    'Realized PnL is FIFO from recorded fills only. Unrealized PnL stays unknown until the caller supplies a mark.',
+    'The OmniCyberDEX page is labeled as browser simulation and is not this adapter.',
   ];
 }

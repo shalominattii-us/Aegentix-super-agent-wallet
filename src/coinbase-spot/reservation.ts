@@ -1,5 +1,6 @@
-import { add, cmp, sub } from './decimal.ts';
-import type { AccountSnapshot, Reservation, SpotCurrency } from './types.ts';
+import { add, cmp, mul, sub } from './decimal.ts';
+import type { AccountSnapshot, OpenOrder, Reservation, SpotCurrency } from './types.ts';
+import { baseCurrency } from './types.ts';
 
 export interface Spendable {
   currency: SpotCurrency;
@@ -34,8 +35,51 @@ export function spendableBalance(
   };
 }
 
-export function openOrdersRequireHold(openOrderCount: number, hold: string): void {
-  if (openOrderCount > 0 && cmp(hold, '0') <= 0) {
-    throw new Error('Open orders exist but the venue hold is zero. Refusing to treat available balance as fully free.');
+export function orderReservesCurrency(order: OpenOrder, currency: SpotCurrency): boolean {
+  if (order.side === 'BUY') return currency === 'USD';
+  return baseCurrency(order.productId) === currency;
+}
+
+/**
+ * Accept the snapshot only when the account hold equals the sum of open-order holds
+ * in that currency. A mismatch, a mix of present and missing hold fields, or a hold
+ * with no open orders is ambiguous and must block a new spend. Available is not
+ * reduced by this sum: Coinbase available is already net of the hold.
+ */
+export function attributeHolds(
+  account: AccountSnapshot,
+  orders: readonly OpenOrder[],
+): { ok: true; attributed: string } | { ok: false; message: string } {
+  if (orders.length === 0) {
+    if (cmp(account.hold, '0') !== 0) {
+      return { ok: false, message: 'Account hold is non-zero and no open order explains it. Spending is blocked.' };
+    }
+    return { ok: true, attributed: '0' };
   }
+  const missing = orders.some((order) => order.outstandingHoldAmount === null);
+  const present = orders.some((order) => order.outstandingHoldAmount !== null);
+  if (missing && present) {
+    return { ok: false, message: 'Some open orders omit outstanding_hold_amount. Hold attribution is ambiguous.' };
+  }
+  let sum = '0';
+  for (const order of orders) {
+    const remaining = sub(order.baseSize, order.filledBase);
+    if (cmp(remaining, '0') < 0) {
+      return { ok: false, message: `Order ${order.orderId} filled size exceeds order size.` };
+    }
+    const amount =
+      order.outstandingHoldAmount !== null
+        ? order.outstandingHoldAmount
+        : order.side === 'BUY'
+          ? mul(remaining, order.limitPrice)
+          : remaining;
+    sum = add(sum, amount);
+  }
+  if (cmp(sum, account.hold) !== 0) {
+    return {
+      ok: false,
+      message: `Open-order holds sum to ${sum} ${account.currency} but the account hold is ${account.hold}. Spending is blocked.`,
+    };
+  }
+  return { ok: true, attributed: sum };
 }

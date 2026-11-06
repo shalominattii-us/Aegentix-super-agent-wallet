@@ -1,5 +1,5 @@
 import { NetworkDisabledError, SpotError } from './errors.ts';
-import { isDecimal } from './decimal.ts';
+import { cmp, isDecimal } from './decimal.ts';
 import {
   isSpotProduct,
   type AccountSnapshot,
@@ -9,21 +9,26 @@ import {
   type PreviewRequest,
   type PreviewResult,
   type ProductMetadata,
+  type FeeSummary,
   type FillRecord,
-  type SpotCurrency,
+  type PortfolioSnapshot,
   type SpotProductId,
   type SubmitRequest,
 } from './types.ts';
 
 export interface CoinbaseSpotAdapter {
-  readonly executionMode: 'disabled' | 'mock';
+  readonly executionMode: 'disabled' | 'mock' | 'http';
   readonly allowsOrderSubmission: boolean;
+  getPortfolio(): Promise<PortfolioSnapshot>;
+  getFeeSummary(): Promise<FeeSummary>;
   getProduct(productId: SpotProductId): Promise<ProductMetadata>;
   getBook(productId: SpotProductId): Promise<BookTop>;
   listAccounts(): Promise<AccountSnapshot[]>;
-  listOpenOrders(productId: SpotProductId): Promise<OpenOrder[]>;
+  /** Omit productId to return every open spot order in the configured portfolio. */
+  listOpenOrders(productId?: SpotProductId): Promise<OpenOrder[]>;
   previewOrder(order: PreviewRequest): Promise<PreviewResult>;
   submitOrder(order: SubmitRequest): Promise<OrderSnapshot>;
+  cancelOrders(orderIds: readonly string[]): Promise<never>;
   getOrder(orderId: string): Promise<OrderSnapshot>;
   listFills(orderId: string): Promise<FillRecord[]>;
 }
@@ -40,13 +45,6 @@ const KNOWN_ORDER_STATUSES = new Set([
 
 export function classifyOrderStatus(status: string): 'known' | 'unknown' {
   return KNOWN_ORDER_STATUSES.has(status) ? 'known' : 'unknown';
-}
-
-function requireCurrency(value: unknown, label: string): SpotCurrency {
-  if (value !== 'USD' && value !== 'BTC' && value !== 'XRP') {
-    throw new SpotError('PAYLOAD_REJECTED', `${label} currency is missing or not USD, BTC, or XRP`);
-  }
-  return value;
 }
 
 function requireDecimal(value: unknown, label: string): string {
@@ -77,9 +75,9 @@ export function parseProduct(payload: unknown): ProductMetadata {
   };
 }
 
-export function parsePreview(payload: unknown): PreviewResult {
+export function parsePreview(payload: unknown, productId: SpotProductId, requestedLimitPrice: string): PreviewResult {
   const body = payload as Record<string, unknown>;
-  const errors = Array.isArray(body.errs) ? body.errs : [];
+  const errors = Array.isArray(body.errs) ? body.errs.map(String) : [];
   if (errors.length > 0) {
     throw new SpotError('PREVIEW_REJECTED', `Venue preview returned errors: ${errors.join('; ')}`);
   }
@@ -87,12 +85,31 @@ export function parsePreview(payload: unknown): PreviewResult {
   if (leverage !== undefined && leverage !== '' && leverage !== '0' && leverage !== 0) {
     throw new SpotError('LEVERAGE_REJECTED', 'Leverage is outside this spot scope');
   }
+  const echoed = body.limit_price;
+  const limitPrice = echoed === undefined || echoed === '' ? requestedLimitPrice : requireDecimal(echoed, 'limit_price');
+  if (cmp(limitPrice, requestedLimitPrice) !== 0) {
+    throw new SpotError('PREVIEW_MISMATCH', 'Preview limit_price does not match the requested limit');
+  }
+  const quote = 'USD';
+  const rawCurrency = body.commission_currency;
+  const commissionCurrency =
+    rawCurrency === undefined || rawCurrency === ''
+      ? quote
+      : rawCurrency === 'USD' || rawCurrency === 'BTC' || rawCurrency === 'XRP'
+        ? rawCurrency
+        : null;
+  if (!commissionCurrency) {
+    throw new SpotError('PAYLOAD_REJECTED', 'Preview commission_currency is not USD, BTC, or XRP');
+  }
+  if ((productId !== 'BTC-USD' && productId !== 'XRP-USD') || (rawCurrency === undefined && quote !== 'USD')) {
+    throw new SpotError('PAYLOAD_REJECTED', 'Preview commission currency cannot be inferred');
+  }
   return {
     baseSize: requireDecimal(body.base_size, 'base_size'),
-    limitPrice: requireDecimal(body.limit_price, 'limit_price'),
+    limitPrice,
     orderTotal: requireDecimal(body.order_total, 'order_total'),
     commissionTotal: requireDecimal(body.commission_total, 'commission_total'),
-    commissionCurrency: requireCurrency(body.commission_currency, 'commission_currency'),
+    commissionCurrency,
   };
 }
 
@@ -104,6 +121,8 @@ export function createDisabledAdapter(): CoinbaseSpotAdapter {
   return {
     executionMode: 'disabled',
     allowsOrderSubmission: false,
+    getPortfolio: refuse,
+    getFeeSummary: refuse,
     getProduct: refuse,
     getBook: refuse,
     listAccounts: refuse,
@@ -111,6 +130,9 @@ export function createDisabledAdapter(): CoinbaseSpotAdapter {
     previewOrder: refuse,
     submitOrder() {
       throw new NetworkDisabledError('Order submission is unavailable. No request was sent.');
+    },
+    cancelOrders() {
+      throw new NetworkDisabledError('Cancel is unavailable. No request was sent.');
     },
     getOrder: refuse,
     listFills: refuse,

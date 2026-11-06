@@ -54,6 +54,8 @@ export interface OpenOrder {
   limitPrice: string;
   baseSize: string;
   filledBase: string;
+  /** Null when the payload did not include outstanding_hold_amount. */
+  outstandingHoldAmount: string | null;
 }
 
 export interface PreviewRequest {
@@ -89,6 +91,19 @@ export interface OrderSnapshot {
   averageFilledPrice: string | null;
   totalFees: string;
   feeCurrency: SpotCurrency | null;
+  outstandingHoldAmount: string | null;
+}
+
+export interface FeeSummary {
+  makerFeeRate: string | null;
+  takerFeeRate: string | null;
+  totalFees: string | null;
+}
+
+export interface PortfolioSnapshot {
+  portfolioId: string;
+  name: string | null;
+  portfolioType: string | null;
 }
 
 export interface FillRecord {

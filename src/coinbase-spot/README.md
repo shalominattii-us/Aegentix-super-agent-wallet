@@ -1,37 +1,42 @@
-# Coinbase spot execution slice
+# Coinbase Advanced Trade spot slice
 
-This module is a disarmed Coinbase Advanced Trade spot orchestrator for one portfolio and two products, `BTC-USD` and `XRP-USD`. It does not submit live orders, does not read credentials from the environment, and does not contain an HTTP client.
+This is a read-capable Coinbase Advanced Trade adapter for one portfolio and only `BTC-USD` and `XRP-USD`. Order create and cancel are implemented as guarded methods and throw before any request. No strategy edge is calculated.
 
-The portal OmniCyberDEX screen is a separate in-browser simulation. It was not changed. The server routes `GET /api/omnicyberdex/engines` and `POST /api/omnicyberdex/execute` now return HTTP 501 with `pnlUsd: null`. They no longer report a fill or a profit.
+The OmniCyberDEX page in the browser is a simulation. Its numbers are not this adapter and are not live profit. Server routes under `/api/coinbase-spot` and `/api/omnicyberdex` require `Authorization: Bearer $COINBASE_SPOT_OPERATOR_TOKEN`.
 
-## What is implemented
+## Operator configuration
 
-- JWT construction for the two algorithms Coinbase documents for direct Advanced Trade REST calls:
-  - ES256 for a P-256 `BEGIN EC PRIVATE KEY` or PKCS8 key. Claims match the Coinbase App sample: `iss=cdp`, `sub`, `nbf`, `exp=nbf+120`, `uri="{METHOD} api.coinbase.com{path}"`, header `kid` and a 16-byte hex nonce. No `aud` claim.
-  - EdDSA for the published 64-byte base64 seed||public key, and for an Ed25519 PKCS8 PEM. Claims add `aud: ["cdp_service"]`, matching the CDP Ed25519 sample. A 32-byte seed alone is rejected.
-- Account and open-order reads through an injected adapter. Spendable funds are venue `available` minus local reservations for intents the venue does not yet hold. Venue `hold` is not subtracted again.
-- Staging sizes to free funds and to the product increments and minima returned by the adapter. There are no embedded tick sizes and no dollar, loss, or order-count caps.
-- A buy that cannot pay the preview fee is reduced once by that fee and previewed again. If the second preview still does not fit, staging stops.
-- `maxSlippageBps` and `maxQuoteAgeMs` are required on every intent. Missing values do not fall back to an approval.
-- Idempotent `clientIntentId`, an append-only journal, fill and fee records, FIFO cost basis, and marked unrealized PnL only when the caller supplies a mark.
-- Unknown venue status keeps the reservation and refuses another submit.
-- Kill switch defaults to engaged. Releasing it does not enable a network order. The disabled adapter throws before any socket.
+Set these in the server environment. Do not commit them and do not print the secret.
 
-## What is not production ready
+| Name | Required | Meaning |
+|---|---|---|
+| `COINBASE_API_KEY_NAME` | For a future read | `organizations/{org_id}/apiKeys/{key_id}` |
+| `COINBASE_API_KEY_SECRET` | For a future read | P-256 PEM, or Ed25519 base64 of 32 or 64 bytes, as accepted by `coinbase-advanced-py` |
+| `COINBASE_PORTFOLIO_ID` | For a future read | The single portfolio uuid |
+| `COINBASE_SPOT_OPERATOR_TOKEN` | For the HTTP routes | At least 16 characters |
+| `COINBASE_SPOT_ALLOW_NETWORK_READ` | Leave unset | `POST /api/coinbase-spot/read` calls Coinbase only when this is `1` |
 
-- No live request has been sent to `api.coinbase.com`. Signing is unit-tested offline only.
-- Official samples sign a path without a query string. This code includes a query in the URI when one is present. That binding is not confirmed against the live host.
-- Coinbase App SDKs accept ES256 only. Direct REST is documented to accept both ES256 and Ed25519. Use the key type that matches the product you actually call.
-- Inventory accounting while an order is working releases only the notional once a single matching open order and a positive hold are visible, and keeps the preview fee reserved. Multiple overlapping open orders are not attributed, so the local reservation stays in place.
-- Realized profit is not an arbitrage edge. It is FIFO inventory accounting on recorded fills. A sell larger than known inventory is `costBasisIncomplete` and does not invent a cost.
-- Cross-chain movement, bridges, allowances, convert, leverage, and any other exchange are out of scope.
+Signing follows the official REST client: the JWT `uri` is `{METHOD} api.coinbase.com{path}` and does **not** include the query string. Query parameters are sent on the URL only. That matches `coinbase-advanced-py` `RESTBase.set_headers`. It has been checked with generated keys and a mock fetch, not against a funded account.
 
-## Local checks
+## Safe readiness command
 
-No credentials and no network are required.
+This command does not call Coinbase and does not print secret values. Exit 0 means the four required names are present. Exit 2 means at least one is missing. `accountVerified` is always false.
+
+```bash
+npm run coinbase-spot:readiness
+```
+
+Tests, also with no network:
 
 ```bash
 npm run test:coinbase-spot
 ```
 
-The status route, when the server is already running for other reasons, is `GET /api/coinbase-spot/status`. It does not arm trading. Do not point this process at a funded Coinbase key. This build has no path that spends a balance.
+## Still not account-verified
+
+- No request has been made to `api.coinbase.com` from this workspace.
+- A passing arming phrase (`ARM_COINBASE_SPOT_MUTATIONS` plus the same portfolio id) still does not send `POST /api/v3/brokerage/orders` or `POST /api/v3/brokerage/orders/batch_cancel`.
+- Open-order holds must sum exactly to the account hold. Otherwise new spending is blocked.
+- Preview responses in the public schema omit `commission_currency`. For these two USD pairs, a missing currency is recorded as USD. Any other currency fails closed.
+- Product-book time is required. A missing timestamp is not treated as fresh.
+- Realized PnL is FIFO from fills already recorded. Unrealized PnL is unknown until a mark is supplied.

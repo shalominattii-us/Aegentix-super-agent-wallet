@@ -84,9 +84,17 @@ export class MockCoinbaseExchange implements CoinbaseSpotAdapter {
     return this.options.accounts.map((account) => ({ ...account }));
   }
 
-  async listOpenOrders(productId: SpotProductId): Promise<OpenOrder[]> {
+  async getPortfolio() {
+    return { portfolioId: this.options.portfolioId, name: 'mock-portfolio', portfolioType: 'CONSUMER' };
+  }
+
+  async getFeeSummary() {
+    return { makerFeeRate: this.options.commissionRate, takerFeeRate: this.options.commissionRate, totalFees: null };
+  }
+
+  async listOpenOrders(productId?: SpotProductId): Promise<OpenOrder[]> {
     return [...this.orders.values()]
-      .filter((order) => order.productId === productId && order.status === 'OPEN')
+      .filter((order) => order.status === 'OPEN' && (productId === undefined || order.productId === productId))
       .map((order) => ({
         orderId: order.orderId,
         clientOrderId: order.clientOrderId,
@@ -97,6 +105,7 @@ export class MockCoinbaseExchange implements CoinbaseSpotAdapter {
         limitPrice: order.limitPrice,
         baseSize: order.baseSize,
         filledBase: order.filledBase,
+        outstandingHoldAmount: order.outstandingHoldAmount,
       }));
   }
 
@@ -133,18 +142,26 @@ export class MockCoinbaseExchange implements CoinbaseSpotAdapter {
       averageFilledPrice: null,
       totalFees: '0',
       feeCurrency: null,
+      outstandingHoldAmount: null,
     };
     if (classifyOrderStatus(status) === 'unknown') {
       snapshot.status = status;
     }
     this.orders.set(snapshot.orderId, snapshot);
     if (status === 'OPEN' && order.side === 'BUY') {
-      this.moveAvailableToHold('USD', mul(order.baseSize, order.limitPrice));
+      const held = mul(order.baseSize, order.limitPrice);
+      snapshot.outstandingHoldAmount = held;
+      this.moveAvailableToHold('USD', held);
     }
     if (status === 'OPEN' && order.side === 'SELL') {
+      snapshot.outstandingHoldAmount = order.baseSize;
       this.moveAvailableToHold(order.productId === 'BTC-USD' ? 'BTC' : 'XRP', order.baseSize);
     }
     return snapshot;
+  }
+
+  async cancelOrders(): Promise<never> {
+    throw new LiveSubmissionDisabledError();
   }
 
   async getOrder(orderId: string): Promise<OrderSnapshot> {
@@ -183,6 +200,7 @@ export class MockCoinbaseExchange implements CoinbaseSpotAdapter {
     order.averageFilledPrice = price;
     order.totalFees = commission;
     order.feeCurrency = 'USD';
+    order.outstandingHoldAmount = '0';
     if (order.side === 'BUY') {
       this.releaseHold('USD', mul(order.baseSize, order.limitPrice));
       this.debitAvailable('USD', add(quote, commission));
