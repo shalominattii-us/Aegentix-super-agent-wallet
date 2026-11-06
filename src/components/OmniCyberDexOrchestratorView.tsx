@@ -64,9 +64,9 @@ export const OmniCyberDexOrchestratorView: React.FC<OmniCyberDexOrchestratorView
     setTimeout(() => {
       setExecutingPair(null);
       const profit = (arb.estProfitUsd * (0.95 + Math.random() * 0.1)).toFixed(2);
-      const log = `[Ω] ARBITRAGE FILLED: ${arb.pair} (${arb.route}) · Captured +$${profit} USD in 22ms`;
+      const log = `[SIMULATION] Browser model only for ${arb.pair} (${arb.route}). Figure +$${profit} is not a Coinbase fill and is not live PnL.`;
       setOrchestratorLogs(logs => [log, ...logs.slice(0, 15)]);
-      if (onNotify) onNotify(`🏆 Arbitrage Filled: +$${profit} USD net profit!`, 'SUCCESS');
+      if (onNotify) onNotify(`Simulation only: browser model showed +$${profit}. This is not a live fill.`, 'INFO');
     }, 900);
   };
 
@@ -101,6 +101,9 @@ export const OmniCyberDexOrchestratorView: React.FC<OmniCyberDexOrchestratorView
 
   return (
     <div className="bg-[#030508] border border-cyan-500/30 rounded-xl overflow-hidden shadow-2xl space-y-4 font-mono text-xs text-slate-200">
+      <div className="px-4 py-2 bg-amber-950/80 border-b border-amber-500/40 text-amber-100 text-[11px] leading-relaxed">
+        SIMULATION ONLY. The balances, fills, and PnL on this page are generated in the browser. They are not Coinbase Advanced Trade, not the spot orchestrator, and not live profit. Actual status is the authenticated route GET /api/coinbase-spot/status.
+      </div>
       {/* HEADER BANNER */}
       <div className="p-4 sm:p-5 border-b border-cyan-500/20 bg-gradient-to-r from-[#030508] via-[#0A1420] to-[#040C18] flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -126,7 +129,7 @@ export const OmniCyberDexOrchestratorView: React.FC<OmniCyberDexOrchestratorView
               </span>
             </div>
             <p className="text-[11px] text-slate-400 mt-1">
-              Gemini Cyber Protected &middot; Autonomous CEX/DEX synchronization &middot; Microsecond Arbitrage Execution &middot; Subprocess Supervisor
+              Simulated display &middot; not an exchange connection &middot; not live execution
             </p>
           </div>
         </div>
