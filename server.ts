@@ -12,6 +12,9 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { SHALOMINATTII_REPOS as ALL_GITHUB_REPOS, GITHUB_USER_PROFILE } from './src/data/githubReposData.ts';
 import { grokMcpRouter } from './src/mcp/grokMcpServer.ts';
+import { OMNICYBERDEX_UNAVAILABLE } from './src/coinbase-spot/unavailable.ts';
+import { authorizeOperator, candidateCheckResponse, diagnosticsResponse, guardedRead, statusPayload } from './src/coinbase-spot/httpRoutes.ts';
+import { readRelayConfig } from './src/coinbase-spot/alphaOneContract.ts';
 import { nexusRegistry } from './src/nexus/nexusRegistryEngine.ts';
 import { ANTI_TRAFFICKING_DATASETS, evaluateAntiTraffickingCompliance } from './src/data/antiTraffickingDatasets.ts';
 import { generateAbletonLiveXml } from './src/utils/abletonLiveSetGenerator.ts';
@@ -6502,52 +6505,50 @@ app.post('/api/sovereign-portal/test-harness/run', (_req, res) => {
 // OMNICYBERDEX MASTER ORCHESTRATOR API
 // ============================================
 
-let omniEngines = [
-  {
-    id: 'binance_us',
-    name: 'Binance US Engine',
-    scriptPath: 'C:\\AEGENTIX-WORKSPACE\\omnicyberdex\\engines\\binance_us_engine.py',
-    exchange: 'Binance US',
-    status: 'ACTIVE_TRADING',
-    latencyMs: 14.2,
-    totalVolume24hUsd: 1425800,
-    ordersExecuted24h: 312,
-    pnl24hUsd: 4892.4,
-    pnl24hPct: 3.42,
-  },
-  {
-    id: 'finance_us',
-    name: 'Finance US CEX/DEX Engine',
-    scriptPath: 'C:\\AEGENTIX-WORKSPACE\\src\\python\\finance_us_engine.py',
-    exchange: 'Finance US CEX/DEX',
-    status: 'ACTIVE_TRADING',
-    latencyMs: 18.5,
-    totalVolume24hUsd: 1894200,
-    ordersExecuted24h: 428,
-    pnl24hUsd: 6140.2,
-    pnl24hPct: 4.18,
-  },
-];
+function denyUnlessOperator(req: express.Request, res: express.Response): boolean {
+  const denied = authorizeOperator(req.header('authorization'), process.env);
+  if (!denied) return false;
+  res.status(denied.status).json(denied.body);
+  return true;
+}
 
 // GET /api/omnicyberdex/engines
-app.get('/api/omnicyberdex/engines', (_req, res) => {
-  res.json({ success: true, engines: omniEngines, timestamp: new Date().toISOString() });
+// The previous handler reported ACTIVE_TRADING and fixed profit. Those figures were not measured.
+app.get('/api/omnicyberdex/engines', (req, res) => {
+  if (denyUnlessOperator(req, res)) return;
+  res.status(501).json({ ...OMNICYBERDEX_UNAVAILABLE, timestamp: new Date().toISOString() });
 });
 
 // POST /api/omnicyberdex/execute
+// No order is created. The previous FILLED / pnlUsd 184.2 body was a placeholder.
 app.post('/api/omnicyberdex/execute', (req, res) => {
-  const { pair, route, amountUsd } = req.body || {};
-  res.json({
-    success: true,
-    txId: `OMNI-TX-${Date.now()}`,
-    pair: pair || 'XRP/USD',
-    route: route || 'BUY_BINANCE_SELL_FINANCE',
-    amountUsd: amountUsd || 10000,
-    latencyMs: 16.4,
-    pnlUsd: 184.2,
-    status: 'FILLED',
-    timestamp: new Date().toISOString(),
-  });
+  if (denyUnlessOperator(req, res)) return;
+  res.status(501).json({ ...OMNICYBERDEX_UNAVAILABLE, timestamp: new Date().toISOString() });
+});
+
+app.get('/api/coinbase-spot/status', (req, res) => {
+  if (denyUnlessOperator(req, res)) return;
+  res.json(statusPayload(process.env));
+});
+
+app.get('/api/coinbase-spot/alpha-one', (req, res) => {
+  if (denyUnlessOperator(req, res)) return;
+  res.json({ ...readRelayConfig(process.env), networkCalled: false, submitEnabled: false });
+});
+
+app.post('/api/coinbase-spot/read', async (req, res) => {
+  const result = await guardedRead(process.env, globalThis.fetch.bind(globalThis), req.header('authorization'));
+  res.status(result.status).json(result.body);
+});
+
+app.post('/api/coinbase-spot/diagnostics', async (req, res) => {
+  const result = await diagnosticsResponse(process.env, req.header('authorization'), req.body ?? {});
+  res.status(result.status).json(result.body);
+});
+
+app.post('/api/coinbase-spot/candidate-check', (req, res) => {
+  const result = candidateCheckResponse(req.header('authorization'), process.env, req.body ?? null);
+  res.status(result.status).json(result.body);
 });
 
 // ============================================
